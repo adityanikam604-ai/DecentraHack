@@ -1,0 +1,866 @@
+PRODUCT REQUIREMENTS DOCUMENT (PRD)
+AI-Powered Adaptive Academic Learning Platform
+Version: 1.0
+Project Type: Hackathon MVP
+Primary Development Environment: Antigravity
+Database / Authentication: Supabase
+Frontend: React + TypeScript + Tailwind CSS
+Backend: Node.js + Express
+AI: LLM API + rule-based personalization
+Blockchain: Certificate verification only
+________________________________________
+1. PRODUCT OVERVIEW
+The AI-Powered Adaptive Academic Learning Platform is an educational platform that adapts the learning experience according to each learner's academic level, existing knowledge, interests, learning preferences, and learning behaviour.
+Traditional educational platforms generally expect learners to adapt to a fixed learning environment.
+Our platform takes the opposite approach:
+Don't make the learner fit the system. Make the system fit the learner.
+The platform initially understands the learner through onboarding, a short questionnaire, and a diagnostic assessment.
+During learning, it continuously observes learner behaviour such as:
+•	Accuracy
+•	Completion time
+•	Attempts
+•	Repeated mistakes
+•	Hints requested
+•	Topics requiring revision
+•	Difficulty preference
+•	Progress
+The system then adapts:
+•	Learning content
+•	Explanation style
+•	Difficulty
+•	Practice activities
+•	Learning sequence
+•	Selected examples
+•	Certain UI parameters
+After a learner demonstrates sufficient mastery of a subject, the platform generates a certificate.
+Blockchain is used only to provide a verifiable proof of certificate authenticity.
+________________________________________
+2. PROBLEM STATEMENT
+Most educational platforms provide a standardized learning experience.
+Every learner may receive:
+•	The same content
+•	The same learning sequence
+•	Similar explanations
+•	Similar assessments
+•	Similar difficulty progression
+•	Similar interface
+However, students are different.
+They have different:
+•	Academic backgrounds
+•	Existing knowledge
+•	Interests
+•	Learning speeds
+•	Strengths
+•	Weaknesses
+•	Learning preferences
+•	Problem-solving abilities
+A student struggling with a topic may need additional explanation and simpler practice, while another student may already be ready for advanced problems.
+Therefore, the core problem is:
+Students are often expected to adapt to the learning system instead of the learning system adapting to the students.
+________________________________________
+3. SOLUTION
+The platform creates a dynamic learner model and uses it to personalize the learning experience.
+The core loop is:
+Observe
+   ↓
+Understand
+   ↓
+Decide
+   ↓
+Adapt
+   ↓
+Evaluate
+   ↓
+Update Learner Model
+   ↓
+Adapt Again
+The platform should become increasingly personalized as it observes more learning behaviour.
+________________________________________
+4. TARGET USERS
+Primary Users
+Undergraduate Students
+Students learning subjects such as:
+•	Data Structures & Algorithms
+•	Object-Oriented Programming
+•	Web Development
+•	Artificial Intelligence
+•	Data Science
+•	DBMS
+•	Operating Systems
+•	Computer Networks
+•	Cybersecurity
+•	Cloud Computing
+Secondary Users
+•	Class 11–12 students
+•	Postgraduate students
+•	Other academic learners
+For the hackathon MVP, the platform should focus primarily on undergraduate technical education rather than attempting to support every education level deeply.
+________________________________________
+5. PRODUCT GOALS
+Primary Goals
+1.	Personalize academic learning.
+2.	Identify a learner's current knowledge level.
+3.	Adapt learning difficulty according to performance.
+4.	Adapt explanations according to learner preferences and behaviour.
+5.	Use learner interests to make academic concepts more relatable.
+6.	Generate personalized practice activities.
+7.	Continuously track learning behaviour.
+8.	Measure topic and subject mastery.
+9.	Generate certificates after demonstrated mastery.
+10.	Provide verifiable certificate authenticity.
+________________________________________
+6. NON-GOALS
+The MVP will NOT attempt to:
+•	Diagnose learning disabilities.
+•	Measure intelligence.
+•	Permanently label students as weak or strong.
+•	Replace teachers.
+•	Build a complete school/university LMS.
+•	Train a foundation AI model.
+•	Build complex machine-learning models.
+•	Store sensitive learner information on blockchain.
+•	Generate arbitrary frontend code using AI.
+•	Support every academic subject.
+•	Build a full-scale enterprise education platform.
+________________________________________
+7. CORE VALUE PROPOSITION
+The platform provides:
+Personalized learning that adapts to the learner instead of forcing the learner to follow a fixed learning path.
+Unlike a normal AI chatbot or course platform, the system should adapt the learning environment and learning path, not simply answer questions.
+________________________________________
+8. FIRST-TIME USER JOURNEY
+Step 1 — Signup/Login
+The user creates an account using Supabase Authentication.
+________________________________________
+Step 2 — Academic Level
+Ask:
+"What is your current education level?"
+Options:
+•	Classes 1–10
+•	Classes 11–12
+•	Undergraduate
+•	Postgraduate
+For the MVP, undergraduate users should receive the most complete experience.
+________________________________________
+Step 3 — Select Subject
+For undergraduate users:
+•	DSA
+•	OOP
+•	Web Development
+•	AI/ML
+•	Data Science
+•	DBMS
+•	Operating Systems
+•	Computer Networks
+The MVP should initially implement only a small number of subjects deeply.
+Recommended demonstration subject:
+Data Structures & Algorithms
+________________________________________
+Step 4 — Select Topic
+Example DSA topics:
+Arrays
+Strings
+Linked Lists
+Stack
+Queue
+Trees
+Graphs
+Sorting
+Searching
+________________________________________
+Step 5 — Short Questionnaire
+The platform asks a small number of useful questions.
+Examples:
+•	What is your current knowledge level?
+•	What is your learning goal?
+•	What type of explanation do you prefer?
+•	What are your interests?
+•	Which areas do you find difficult?
+The questionnaire should remain short to prevent onboarding fatigue.
+________________________________________
+Step 6 — Diagnostic Assessment
+The platform gives approximately 5–10 questions related to the selected subject/topic.
+The system records:
+•	Accuracy
+•	Time taken
+•	Attempts
+•	Mistakes
+•	Hints
+•	Skipped questions
+The result creates an initial learner state.
+Example:
+Current Level: Intermediate
+
+Strength:
+Arrays
+
+Needs Practice:
+Trees
+
+Preferred Explanation:
+Real-world examples
+
+Interest:
+Railway systems
+This profile is dynamic and can change.
+________________________________________
+9. LEARNER MODEL
+The learner model represents the system's current understanding of the learner.
+Example:
+{
+  "educationLevel": "undergraduate",
+  "subject": "DSA",
+  "currentLevel": "intermediate",
+  "interests": [
+    "railway"
+  ],
+  "preferredExplanation": "real-world examples",
+  "strengths": [
+    "arrays",
+    "strings"
+  ],
+  "needsPractice": [
+    "graphs"
+  ],
+  "difficultyPreference": "medium"
+}
+The learner model should be continuously updated using new behavioural data.
+________________________________________
+10. PERSONALIZED LEARNING PATH
+The platform should create a learning path based on the learner's current state.
+Example:
+Arrays
+   ↓
+Strings
+   ↓
+Linked Lists
+   ↓
+Stack & Queue
+   ↓
+Trees
+   ↓
+Graphs
+However, the path should not always be identical.
+If the learner struggles:
+Concept Revision
+       ↓
+Simpler Explanation
+       ↓
+Example
+       ↓
+Easy Practice
+       ↓
+Reassessment
+If the learner performs well:
+Increase Difficulty
+       ↓
+Advanced Problem
+       ↓
+Challenge
+________________________________________
+11. PERSONALIZATION EXAMPLE
+Suppose two students are learning Graph Algorithms.
+Student A
+Interest:
+Railway systems
+The system explains:
+•	Stations → Nodes
+•	Railway tracks → Edges
+•	Travel time → Weights
+•	Fastest route → Shortest Path
+Student B
+Interest:
+Gaming
+The system explains:
+•	Game locations → Nodes
+•	Movement paths → Edges
+•	Movement cost → Weights
+•	Optimal game route → Shortest Path
+Both students learn the same academic concept, but the examples and learning experience are personalized.
+________________________________________
+12. AI ARCHITECTURE
+The platform contains three logical AI components.
+12.1 Learning Agent
+Responsibilities:
+•	Recommend next topics
+•	Generate explanations
+•	Select examples
+•	Adapt explanation style
+•	Recommend revision
+•	Recommend learning resources
+________________________________________
+12.2 Activity Agent
+Responsibilities:
+•	Generate practice questions
+•	Generate MCQs
+•	Generate coding problems
+•	Generate conceptual questions
+•	Generate scenario-based questions
+•	Adjust difficulty
+The Activity Agent should consider:
+•	Current topic
+•	Learner level
+•	Previous performance
+•	Mistakes
+•	Interests
+•	Difficulty preference
+________________________________________
+12.3 Adaptive UI Agent
+The Adaptive UI component controls predefined UI configurations.
+Possible parameters:
+•	Font size
+•	Information density
+•	Spacing
+•	Content per page
+•	Hints
+•	Explanation format
+•	Visual mode
+Example:
+{
+  "fontSize": "large",
+  "density": "low",
+  "contentPerPage": 1,
+  "hintsEnabled": true,
+  "visualMode": true
+}
+The LLM must NOT generate arbitrary CSS or frontend code.
+The frontend should only accept predefined configuration values.
+________________________________________
+13. AGENTIC LEARNING LOOP
+The system should follow:
+Student
+   ↓
+Behaviour
+   ↓
+Learner Model
+   ↓
+AI Orchestrator
+   ↓
+Learning Agent
+Activity Agent
+Adaptive UI
+   ↓
+Personalized Experience
+   ↓
+New Behaviour
+   ↓
+Updated Learner Model
+For the MVP, personalization should primarily use:
+Rule-based logic + LLM reasoning
+rather than complex machine learning.
+________________________________________
+14. PERSONALIZATION RULES
+Example rules:
+Low performance
+If accuracy is consistently low:
+→ Reduce difficulty
+→ Provide additional explanation
+→ Recommend prerequisite concepts
+Repeated mistakes
+If the same concept is repeatedly answered incorrectly:
+→ Identify the concept gap
+→ Provide revision
+→ Generate easier practice
+Slow completion
+If completion time is consistently high:
+→ Provide step-by-step explanation
+→ Reduce information density
+High performance
+If performance is consistently high:
+→ Increase difficulty
+→ Provide advanced problems
+Strong interest
+If the learner has a known interest:
+→ Use relevant examples where appropriate
+The system should avoid making permanent psychological assumptions.
+________________________________________
+15. ACTIVITY SYSTEM
+The platform should support:
+•	MCQs
+•	Conceptual questions
+•	Coding questions
+•	Numerical questions
+•	Scenario-based questions
+•	Revision activities
+•	Challenge problems
+Each activity should record:
+•	Question
+•	Topic
+•	Difficulty
+•	Student answer
+•	Correct answer
+•	Time
+•	Attempts
+•	Hints
+•	Result
+________________________________________
+16. PROGRESS TRACKING
+The dashboard should display:
+•	Overall progress
+•	Topic progress
+•	Current mastery
+•	Weak areas
+•	Strong areas
+•	Recent activity
+•	Recommended next topic
+•	Achievements
+•	Certification progress
+Example:
+DSA Progress
+
+Arrays       92%
+Strings      88%
+Linked List  76%
+Trees        68%
+Graphs       55%
+________________________________________
+17. MASTERY SYSTEM
+Completion alone should not result in certification.
+A student must demonstrate understanding.
+Mastery can consider:
+•	Topic assessments
+•	Practice performance
+•	Concept understanding
+•	Problem-solving
+•	Application
+•	Final assessment
+Example:
+Concept Understanding     85%
+Problem Solving           82%
+Application               88%
+Final Assessment          86%
+
+Overall Mastery           85%
+The mastery threshold should be configurable.
+Example MVP rule:
+Overall Mastery >= 80%
+AND
+Final Assessment >= 75%
+AND
+Required Topics Completed
+If mastery is not achieved:
+More Practice
+     ↓
+Revision
+     ↓
+Reassessment
+________________________________________
+18. CERTIFICATION SYSTEM
+After the learner demonstrates mastery:
+Certificate of Mastery
+is generated.
+Certificate should contain:
+•	Student name
+•	Subject
+•	Achievement
+•	Mastery score
+•	Completion date
+•	Certificate ID
+•	Platform name
+•	Verification mechanism
+Example:
+CERTIFICATE OF MASTERY
+
+This certifies that
+
+Aditya Nikam
+
+has demonstrated mastery of
+
+DATA STRUCTURES & ALGORITHMS
+
+Mastery Score: 85%
+
+Certificate ID:
+CERT-DSA-2026-00125
+________________________________________
+19. BLOCKCHAIN CERTIFICATE VERIFICATION
+Blockchain is used ONLY for certificate authenticity.
+Normal application data remains in Supabase.
+Supabase stores:
+•	Student profile
+•	Learning progress
+•	Assessment results
+•	Mastery
+•	Certificate metadata
+Blockchain stores:
+•	Certificate hash/proof
+•	Certificate ID
+•	Timestamp
+•	Verification reference
+Sensitive student data must NOT be stored directly on-chain.
+________________________________________
+20. CERTIFICATE VERIFICATION
+Create a public verification page.
+User enters:
+CERT-DSA-2026-00125
+The system checks the certificate record and blockchain proof.
+Result:
+✓ Certificate Verified
+
+Certificate:
+DSA Mastery
+
+Status:
+Authentic
+
+Issued:
+October 2026
+Do not expose unnecessary personal information.
+________________________________________
+21. TECHNOLOGY STACK
+Frontend
+•	React
+•	TypeScript
+•	Tailwind CSS
+•	React Router
+•	Recharts
+•	Lucide React
+Backend
+•	Node.js
+•	Express.js
+Database
+•	Supabase PostgreSQL
+Authentication
+•	Supabase Auth
+Security
+•	Supabase Row Level Security
+Storage
+•	Supabase Storage where required
+AI
+•	LLM API
+•	AI orchestration
+•	Rule-based personalization
+Blockchain
+Blockchain network/testnet only for certificate verification.
+Development
+Antigravity
+Deployment
+•	Vercel → Frontend
+•	Render/Railway → Backend
+•	Supabase → Database/Auth
+________________________________________
+22. DATABASE
+Potential core tables:
+users
+Stores basic user/account information.
+learner_profiles
+Stores:
+•	Education level
+•	Current level
+•	Learning goals
+•	Interests
+•	Preferences
+subjects
+Stores available subjects.
+topics
+Stores subject topics.
+learner_subjects
+Maps learners to subjects.
+assessments
+Stores assessment information.
+assessment_questions
+Stores questions.
+assessment_attempts
+Stores learner answers and performance.
+learning_progress
+Stores topic progress and mastery.
+activity_attempts
+Stores practice activity performance.
+learner_behaviour
+Stores important behavioural signals.
+ui_preferences
+Stores current adaptive UI configuration.
+achievements
+Stores learner achievements.
+certificates
+Stores certificate metadata.
+certificate_verifications
+Stores verification information if required.
+The schema should be kept minimal for the MVP.
+________________________________________
+23. SECURITY
+The system must use:
+•	Supabase Authentication
+•	Row Level Security
+•	Protected API endpoints
+•	Role-based authorization where necessary
+•	Secure environment variables
+•	No API keys in frontend code
+•	Minimal collection of personal data
+Student data should only be accessible to authorized users.
+________________________________________
+24. MAIN UI SCREENS
+Public
+1.	Landing Page
+2.	Login
+3.	Signup
+4.	Certificate Verification
+Onboarding
+5.	Academic Level
+6.	Subject Selection
+7.	Topic Selection
+8.	Learning Preferences
+9.	Interests
+10.	Diagnostic Assessment
+Main Application
+11.	Personalized Dashboard
+12.	Subject Page
+13.	Lesson Page
+14.	Practice/Activity Page
+15.	Results Page
+16.	Progress Page
+17.	Learner Profile
+18.	Achievements
+19.	Certification Page
+20.	Certificate Preview
+________________________________________
+25. PERSONALIZED DASHBOARD
+Example:
+Welcome back, Aditya 👋
+
+Your Learning Progress
+████████████████░░░░ 78%
+
+Continue Learning
+Graph Algorithms
+72% Complete
+
+[Continue]
+
+Recommended For You
+
+Shortest Path Algorithms
+
+Why this is recommended:
+
+✓ Graph fundamentals are strong
+✓ BFS performance is good
+⚠ Weighted graphs need practice
+
+Your Mastery
+
+Graphs       82%
+Trees        76%
+Sorting      91%
+
+Certification
+
+DSA Mastery
+82%
+
+Final Assessment Pending
+
+[Continue Learning]
+________________________________________
+26. API REQUIREMENTS
+Potential APIs:
+POST /auth/signup
+POST /auth/login
+
+GET /subjects
+GET /subjects/:id/topics
+
+POST /assessment/start
+POST /assessment/submit
+
+GET /learner/profile
+GET /learner/progress
+
+POST /activity/generate
+POST /activity/submit
+
+POST /ai/adapt
+
+GET /recommendations
+
+GET /certificates
+POST /certificates/generate
+
+GET /certificates/:certificateId
+
+GET /verify/:certificateId
+Only implement APIs required by the actual MVP.
+________________________________________
+27. ERROR HANDLING
+The application should handle:
+Authentication failure
+Show a clear error.
+AI failure
+Provide fallback content instead of breaking the entire lesson.
+Database failure
+Show a retry option.
+Assessment failure
+Prevent loss of completed answers where possible.
+Certificate generation failure
+Allow retry without losing mastery information.
+Blockchain failure
+Certificate generation should not permanently break because blockchain verification is temporarily unavailable.
+________________________________________
+28. ANALYTICS
+Track enough data to demonstrate that adaptation actually occurred.
+Important metrics:
+•	Initial assessment score
+•	Subsequent assessment score
+•	Accuracy
+•	Completion time
+•	Attempts
+•	Hints
+•	Difficulty changes
+•	Topic mastery
+•	Final mastery
+•	Learning progression
+The hackathon demo should show:
+Before adaptation → adaptation → after adaptation
+This is more convincing than simply showing AI-generated content.
+________________________________________
+29. MVP SCOPE
+MUST HAVE
+•	Signup/Login
+•	Academic level selection
+•	Subject/topic selection
+•	Short onboarding questionnaire
+•	Diagnostic assessment
+•	Learner profile
+•	Personalized dashboard
+•	Learning content
+•	Personalized practice
+•	Behaviour tracking
+•	Rule-based adaptation
+•	AI-generated explanations/questions
+•	Progress tracking
+•	Mastery calculation
+•	Certificate generation
+•	Certificate verification
+________________________________________
+30. SHOULD HAVE
+•	Adaptive UI configuration
+•	Multiple learning paths
+•	Achievements
+•	Better recommendation system
+•	Blockchain verification
+•	PDF certificates
+•	More subjects
+________________________________________
+31. NICE TO HAVE
+•	Advanced ML personalization
+•	Embeddings/vector search
+•	Contextual bandits
+•	Voice learning
+•	Advanced gamification
+•	Teacher dashboard
+•	Institution dashboard
+•	Mobile application
+These should NOT be implemented if they threaten MVP completion.
+________________________________________
+32. REMOVE FROM MVP
+Do not build:
+•	Full enterprise LMS
+•	Complex ML models
+•	Custom foundation model
+•	Large-scale blockchain infrastructure
+•	Permanent psychological learner profiling
+•	Arbitrary AI-generated UI
+•	Too many subjects
+•	Excessive gamification
+•	Complex teacher/admin systems
+________________________________________
+33. PRIMARY HACKATHON DEMO
+The main demonstration should follow one learner.
+Example:
+Step 1
+Student selects:
+Undergraduate → DSA → Graphs
+Step 2
+Student indicates:
+Interest: Railway
+Step 3
+Diagnostic assessment identifies:
+Graph fundamentals: Good
+Weighted graphs: Weak
+Step 4
+Platform teaches:
+Graphs using railway stations and routes.
+Step 5
+Student struggles with weighted graphs.
+Step 6
+System detects repeated mistakes.
+Step 7
+Learning Agent adapts explanation.
+Instead of:
+Generic theoretical explanation
+it provides:
+Railway route example.
+Step 8
+Activity Agent generates easier weighted-graph questions.
+Step 9
+Student improves.
+Step 10
+System increases difficulty.
+Step 11
+Student completes all required DSA topics.
+Step 12
+Student takes final mastery assessment.
+Step 13
+Student achieves:
+85% Mastery
+Step 14
+Certificate is generated.
+Step 15
+Certificate receives a blockchain-backed verification proof.
+Step 16
+Judge verifies the certificate using the public verification page.
+This demonstrates the entire product loop.
+________________________________________
+34. SUCCESS CRITERIA
+The MVP is successful if a judge can clearly understand:
+Student
+   ↓
+Initial Knowledge
+   ↓
+Behaviour
+   ↓
+Learner Model
+   ↓
+AI Decision
+   ↓
+Personalized Learning
+   ↓
+Improved Performance
+   ↓
+Mastery
+   ↓
+Certificate
+   ↓
+Verification
+The platform should demonstrate measurable adaptation rather than simply showing an AI chatbot.
+________________________________________
+35. FUTURE DEVELOPMENT
+After the MVP, the platform can evolve to include:
+•	Advanced learner modelling
+•	Embeddings
+•	Vector search
+•	Machine-learning recommendations
+•	Contextual bandits
+•	More subjects
+•	Teacher dashboards
+•	Institutional analytics
+•	Mobile applications
+•	Collaborative learning
+•	Advanced certification
+•	More sophisticated blockchain verification
+________________________________________
+36. CORE PRODUCT PRINCIPLE
+The platform must always prioritize:
+Learning effectiveness > AI complexity
+Real personalization > AI buzzwords
+Working MVP > Feature quantity
+Evidence of mastery > Course completion
+Student privacy > Data collection
+Useful blockchain verification > Blockchain for the sake of blockchain
+________________________________________
+37. FINAL PRODUCT STATEMENT
+An AI-powered adaptive academic learning platform that understands each learner's academic level, interests, knowledge, and learning behaviour, dynamically personalizes their learning experience, measures demonstrated mastery, and provides verifiable certificates upon successful completion.
+Core vision:
+"Don't make the learner fit the system. Make the system fit the learner."
+

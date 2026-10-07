@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-white text-navy-900 font-sans;
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { @apply bg-navy-100; }
+  ::-webkit-scrollbar-thumb { @apply bg-navy-300 rounded-full; }
+}
+
+@layer components {
+
+  /* ── Buttons ── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-brand-600 hover:bg-brand-700 active:bg-brand-800
+           text-white text-sm font-semibold px-5 py-2.5 rounded-lg
+           shadow-sm transition-all duration-150
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-white hover:bg-navy-50 active:bg-navy-100
+           text-navy-800 text-sm font-semibold px-5 py-2.5 rounded-lg
+           border border-navy-200 shadow-sm transition-all duration-150
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2
+           text-navy-600 hover:text-navy-900 hover:bg-navy-50
+           text-sm font-medium px-4 py-2 rounded-lg transition-all duration-150;
+  }
+
+  /* ── Cards ── */
+  .card {
+    @apply bg-white border border-navy-200 rounded-xl shadow-card p-6;
+  }
+
+  .card-md {
+    @apply bg-white border border-navy-200 rounded-xl shadow-card-md p-6;
+  }
+
+  /* ── Form inputs ── */
+  .input-field {
+    @apply w-full bg-white border border-navy-200 rounded-lg
+           px-4 py-2.5 text-sm text-navy-900 placeholder-navy-400
+           focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500
+           transition-colors duration-150;
+  }
+
+  /* ── Section label ── */
+  .section-label {
+    @apply inline-flex items-center gap-1.5
+           text-xs font-semibold uppercase tracking-widest text-brand-600
+           bg-brand-50 border border-brand-100 rounded-full px-3 py-1;
+  }
+
+  /* ── Section heading ── */
+  .section-heading {
+    @apply text-2xl md:text-3xl font-bold text-navy-900 leading-snug;
+  }
+
+  /* ── Muted text ── */
+  .text-muted {
+    @apply text-navy-500;
+  }
+
+  /* ── Nav link ── */
+  .nav-link {
+    @apply text-sm text-navy-600 hover:text-navy-900 font-medium transition-colors duration-150;
+  }
+}
