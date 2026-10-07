@@ -5,10 +5,13 @@ import LoginPage from './pages/LoginPage'
 import OnboardingPage from './pages/OnboardingPage'
 import DashboardPage from './pages/DashboardPage'
 import DiagnosticAssessmentPage from './pages/DiagnosticAssessmentPage'
+import LearningContentPage from './pages/LearningContentPage'
+import PracticePage from './pages/PracticePage'
 
 export default function App() {
   const { user, loading, profileLoading, hasCompletedOnboarding } = useAuth()
-  const [currentView, setCurrentView] = useState<'main' | 'diagnostic'>('main')
+  const [currentView, setCurrentView] = useState<'main' | 'diagnostic' | 'learning' | 'practice'>('main')
+  const [activeTopicId, setActiveTopicId] = useState<string>('graphs')
 
   // Spinner while loading Supabase session or initial profile
   if (loading || (user && profileLoading && !hasCompletedOnboarding)) {
@@ -42,10 +45,40 @@ export default function App() {
         onExit={() => setCurrentView('main')}
       />
     )
+  } else if (currentView === 'learning') {
+    mainElement = (
+      <LearningContentPage
+        initialTopicId={activeTopicId}
+        onBackToDashboard={() => setCurrentView('main')}
+        onPracticeTopic={(topicId) => {
+          setActiveTopicId(topicId)
+          setCurrentView('practice')
+        }}
+      />
+    )
+  } else if (currentView === 'practice') {
+    mainElement = (
+      <PracticePage
+        initialTopicId={activeTopicId}
+        onBackToDashboard={() => setCurrentView('main')}
+        onOpenLearningTopic={(topicId) => {
+          setActiveTopicId(topicId)
+          setCurrentView('learning')
+        }}
+      />
+    )
   } else {
     mainElement = (
       <DashboardPage
         onStartDiagnostic={() => setCurrentView('diagnostic')}
+        onOpenTopic={(topicId) => {
+          setActiveTopicId(topicId)
+          setCurrentView('learning')
+        }}
+        onStartPractice={(topicId) => {
+          if (topicId) setActiveTopicId(topicId)
+          setCurrentView('practice')
+        }}
       />
     )
   }

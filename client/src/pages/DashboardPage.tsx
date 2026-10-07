@@ -51,7 +51,17 @@ function resultIcon(result: string) {
 
 // ── Navbar ────────────────────────────────────────────────────────────────────
 
-function DashboardNav({ onSignOut, onStartDiagnostic }: { onSignOut: () => void; onStartDiagnostic?: () => void }) {
+function DashboardNav({
+  onSignOut,
+  onStartDiagnostic,
+  onOpenTopic,
+  onStartPractice,
+}: {
+  onSignOut: () => void
+  onStartDiagnostic?: () => void
+  onOpenTopic?: (topicId: string) => void
+  onStartPractice?: (topicId?: string) => void
+}) {
   return (
     <header className="fixed top-0 inset-x-0 z-50 bg-white border-b border-navy-200">
       <nav className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -65,6 +75,20 @@ function DashboardNav({ onSignOut, onStartDiagnostic }: { onSignOut: () => void;
             className="text-sm font-medium text-brand-600 border-b-2 border-brand-600 pb-0.5"
           >
             Dashboard
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpenTopic?.('graphs')}
+            className="text-sm font-medium text-navy-500 hover:text-navy-900 transition-colors"
+          >
+            Learn Topics
+          </button>
+          <button
+            type="button"
+            onClick={() => onStartPractice?.('graphs')}
+            className="text-sm font-medium text-navy-500 hover:text-navy-900 transition-colors"
+          >
+            Adaptive Practice
           </button>
           <button
             type="button"
@@ -111,9 +135,15 @@ function DashboardNav({ onSignOut, onStartDiagnostic }: { onSignOut: () => void;
 
 interface DashboardPageProps {
   onStartDiagnostic?: () => void
+  onOpenTopic?: (topicId: string) => void
+  onStartPractice?: (topicId?: string) => void
 }
 
-export default function DashboardPage({ onStartDiagnostic }: DashboardPageProps = {}) {
+export default function DashboardPage({
+  onStartDiagnostic,
+  onOpenTopic,
+  onStartPractice,
+}: DashboardPageProps = {}) {
   const { user, signOut, learnerProfile } = useAuth()
 
   const handleSignOut = async () => {
@@ -217,7 +247,12 @@ export default function DashboardPage({ onStartDiagnostic }: DashboardPageProps 
 
   return (
     <div className="min-h-screen bg-navy-50">
-      <DashboardNav onSignOut={handleSignOut} onStartDiagnostic={onStartDiagnostic} />
+      <DashboardNav
+        onSignOut={handleSignOut}
+        onStartDiagnostic={onStartDiagnostic}
+        onOpenTopic={onOpenTopic}
+        onStartPractice={onStartPractice}
+      />
 
       <main className="max-w-7xl mx-auto px-6 pt-24 pb-16">
 
@@ -231,7 +266,17 @@ export default function DashboardPage({ onStartDiagnostic }: DashboardPageProps 
               Data Structures & Algorithms · {educationLevelName} · Goal: {learnerProfile?.learning_goals || 'Placement & Technical Mastery'}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {onStartPractice && (
+              <button
+                type="button"
+                onClick={() => onStartPractice(focusTopic.toLowerCase().replace(/[^a-z0-9]+/g, '-'))}
+                className="btn-secondary flex items-center gap-2 text-xs font-semibold py-2.5 px-4 text-brand-700 bg-brand-50 border-brand-200 hover:bg-brand-100"
+              >
+                <Zap className="w-4 h-4 text-brand-600" />
+                Practice DSA
+              </button>
+            )}
             {onStartDiagnostic && (
               <button
                 type="button"
@@ -244,6 +289,7 @@ export default function DashboardPage({ onStartDiagnostic }: DashboardPageProps 
             )}
             <button
               type="button"
+              onClick={() => onOpenTopic?.(focusTopic.toLowerCase().replace(/[^a-z0-9]+/g, '-'))}
               className="btn-primary self-start sm:self-auto"
             >
               Continue learning <ArrowRight className="w-4 h-4" />
@@ -330,27 +376,39 @@ export default function DashboardPage({ onStartDiagnostic }: DashboardPageProps 
                 <h2 className="font-semibold text-navy-900 text-sm">Topic Mastery</h2>
                 <button
                   type="button"
+                  onClick={() => onOpenTopic?.('arrays')}
                   className="text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1"
                 >
                   View all <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
               <div className="space-y-3.5">
-                {currentTopicList.map(t => (
-                  <div key={t.name} className="flex items-center gap-3">
-                    <span className="text-xs text-navy-600 w-24 flex-shrink-0 font-medium">{t.name}</span>
-                    <div className="flex-1 h-2 bg-navy-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${progressColor(t.pct)}`}
-                        style={{ width: `${t.pct}%` }}
-                      />
+                {currentTopicList.map(t => {
+                  const slug = t.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+                  return (
+                    <div
+                      key={t.name}
+                      onClick={() => onOpenTopic?.(slug)}
+                      className="flex items-center gap-3 p-2 -mx-2 rounded-xl hover:bg-navy-50/80 cursor-pointer transition-colors group"
+                      title={`Learn ${t.name}`}
+                    >
+                      <span className="text-xs text-navy-700 group-hover:text-brand-700 w-24 flex-shrink-0 font-medium transition-colors">
+                        {t.name}
+                      </span>
+                      <div className="flex-1 h-2 bg-navy-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${progressColor(t.pct)}`}
+                          style={{ width: `${t.pct}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-bold text-navy-700 w-9 text-right">{t.pct}%</span>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border hidden sm:inline ${statusBadge(t.status)}`}>
+                        {statusLabel(t.status)}
+                      </span>
+                      <ChevronRight className="w-3.5 h-3.5 text-navy-400 group-hover:text-brand-600 transition-colors" />
                     </div>
-                    <span className="text-xs font-bold text-navy-700 w-9 text-right">{t.pct}%</span>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border hidden sm:inline ${statusBadge(t.status)}`}>
-                      {statusLabel(t.status)}
-                    </span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
 
@@ -400,12 +458,26 @@ export default function DashboardPage({ onStartDiagnostic }: DashboardPageProps 
               <div className="h-1.5 bg-navy-100 rounded-full overflow-hidden mb-4">
                 <div className="h-full w-[42%] bg-brand-500 rounded-full" />
               </div>
-              <button
-                type="button"
-                className="btn-primary w-full justify-center text-sm py-2.5"
-              >
-                Continue {focusTopic} <ArrowRight className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onOpenTopic?.(focusTopic.toLowerCase().replace(/[^a-z0-9]+/g, '-'))}
+                  className="btn-primary flex-1 justify-center text-xs py-2.5"
+                >
+                  Learn {focusTopic} <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                {onStartPractice && (
+                  <button
+                    type="button"
+                    onClick={() => onStartPractice(focusTopic.toLowerCase().replace(/[^a-z0-9]+/g, '-'))}
+                    className="btn-secondary px-3.5 justify-center text-xs py-2.5 flex items-center gap-1.5 text-brand-700 bg-brand-50 border-brand-200 hover:bg-brand-100"
+                    title={`Practice ${focusTopic}`}
+                  >
+                    <Zap className="w-3.5 h-3.5 text-brand-600" />
+                    <span>Practice</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Recommended next */}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { PREDEFINED_DIAGNOSTIC_QUESTIONS, type DiagnosticQuestion } from '../data/diagnosticQuestions'
+import { shuffleArray } from '../utils/shuffle'
 import type { LearnerProfile } from '../types'
 import {
   Clock, Award, CheckCircle, AlertCircle, ArrowRight,
@@ -31,8 +32,13 @@ interface DiagnosticAssessmentProps {
 export default function DiagnosticAssessmentPage({ onComplete, onExit }: DiagnosticAssessmentProps) {
   const { user, learnerProfile, setProfileLocally } = useAuth()
 
-  // Questions set (8 core PRD questions)
-  const questions: DiagnosticQuestion[] = PREDEFINED_DIAGNOSTIC_QUESTIONS
+  // Questions set (8 core PRD questions with independently shuffled options per session)
+  const [questions] = useState<DiagnosticQuestion[]>(() =>
+    PREDEFINED_DIAGNOSTIC_QUESTIONS.map(q => ({
+      ...q,
+      options: shuffleArray(q.options),
+    }))
+  )
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({})
