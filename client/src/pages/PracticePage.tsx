@@ -7,7 +7,8 @@ import { shuffleArray } from '../utils/shuffle'
 import {
   Brain, Zap, Clock, Lightbulb, CheckCircle2, XCircle,
   ArrowRight, ArrowLeft, RefreshCw, Award, Sparkles,
-  BookOpen, Check, X
+  BookOpen, Check, X, ShieldCheck, Flame,
+  AlertTriangle, Compass
 } from 'lucide-react'
 
 interface PracticePageProps {
@@ -27,6 +28,27 @@ interface AttemptRecord {
   timeTaken: number
   hintsUsed: number
   attemptsCount: number
+}
+
+interface AnsweredState {
+  isCorrect: boolean
+  explanation: string
+  revisionTip: string
+  correctAnswer: string
+  nextDiff: 'easy' | 'medium' | 'hard'
+  adaptationNotice: string
+  adaptationReason: string
+  ruleTriggered: 'repeated_mistakes' | 'low_accuracy' | 'high_performance' | 'good_accuracy' | 'slow_completion'
+  isSlowCompletion: boolean
+  isRepeatedMistake: boolean
+  learnerModelUpdated: boolean
+  learnerModelNotice?: string
+  interestAnalogy?: {
+    title: string
+    narrative: string
+    mappingText: string
+  }
+  stepByStepTip?: string
 }
 
 // Map difficulty colors
@@ -57,7 +79,7 @@ export default function PracticePage({
   onBackToDashboard,
   onOpenLearningTopic,
 }: PracticePageProps) {
-  const { user, learnerProfile } = useAuth()
+  const { user, learnerProfile, setProfileLocally } = useAuth()
 
   // ── Available topics ────────────────────────────────────────────────────────
   const topicsList = PREDEFINED_LEARNING_TOPICS.map(t => ({
@@ -75,6 +97,12 @@ export default function PracticePage({
   })
 
   const currentTopicMeta = topicsList.find(t => t.id === selectedTopicId) || topicsList[0]
+  const activeLearningTopic = PREDEFINED_LEARNING_TOPICS.find(
+    t => t.id === selectedTopicId || t.name.toLowerCase() === selectedTopicId.toLowerCase()
+  )
+
+  // Learner profile attributes
+  const userInterestKey = learnerProfile?.interests?.[0] || 'railway'
 
   // ── Pre-cached Supabase topic UUIDs ─────────────────────────────────────────
   const [topicDbMap, setTopicDbMap] = useState<Record<string, string>>({})
@@ -163,10 +191,17 @@ export default function PracticePage({
     }
   }
 
-  // ── State Tracking ──────────────────────────────────────────────────────────
+  // ── Adaptive State Tracking ─────────────────────────────────────────────────
   const [currentDifficulty, setCurrentDifficulty] = useState<'easy' | 'medium' | 'hard'>(() => {
     return determineInitialDifficulty(currentTopicMeta.name)
   })
+
+  // Session-level behavioral counters for Step 13 Adaptation Logic
+  const [consecutiveCorrect, setConsecutiveCorrect] = useState<number>(0)
+  const [consecutiveMistakes, setConsecutiveMistakes] = useState<number>(0)
+  const [topicMistakes, setTopicMistakes] = useState<number>(0)
+  const [topicCorrect, setTopicCorrect] = useState<number>(0)
+  const [topicMastery, setTopicMastery] = useState<number>(55)
 
   // Track question IDs already presented in the current session
   const [usedQuestionIds, setUsedQuestionIds] = useState<string[]>([])
@@ -176,14 +211,7 @@ export default function PracticePage({
   const [sessionFinished, setSessionFinished] = useState(false)
 
   // Answered State
-  const [answeredState, setAnsweredState] = useState<{
-    isCorrect: boolean
-    explanation: string
-    revisionTip: string
-    correctAnswer: string
-    nextDiff: 'easy' | 'medium' | 'hard'
-    adaptationNotice: string
-  } | null>(null)
+  const [answeredState, setAnsweredState] = useState<AnsweredState | null>(null)
 
   // Hints
   const [hintRevealed, setHintRevealed] = useState(false)
@@ -193,6 +221,26 @@ export default function PracticePage({
   const [secondsElapsed, setSecondsElapsed] = useState(0)
   const [questionStartTime, setQuestionStartTime] = useState(Date.now())
   const timerRef = useRef<any>(null)
+
+  // Fetch initial mastery from Supabase when topic changes
+  useEffect(() => {
+    async function loadMastery() {
+      if (!user) return
+      const topicUuid = topicDbMap[selectedTopicId] || topicDbMap[currentTopicMeta.name.toLowerCase()]
+      if (topicUuid) {
+        const { data } = await supabase
+          .from('learning_progress')
+          .select('mastery_score')
+          .eq('user_id', user.id)
+          .eq('topic_id', topicUuid)
+          .maybeSingle()
+        if (data?.mastery_score) {
+          setTopicMastery(data.mastery_score)
+        }
+      }
+    }
+    loadMastery()
+  }, [selectedTopicId, topicDbMap, user])
 
   // Initialize or re-initialize session when topic changes
   useEffect(() => {
@@ -206,6 +254,12 @@ export default function PracticePage({
     setSecondsElapsed(0)
     setQuestionStartTime(Date.now())
     setSessionFinished(false)
+
+    // Reset behavioral counters on topic switch
+    setConsecutiveCorrect(0)
+    setConsecutiveMistakes(0)
+    setTopicMistakes(0)
+    setTopicCorrect(0)
 
     // Select first question
     const firstQ = selectUnusedQuestion(selectedTopicId, initDiff, [])
@@ -242,38 +296,145 @@ export default function PracticePage({
     }
   }
 
-  // ── Submit Current Answer ───────────────────────────────────────────────────
+  // ── Submit Current Answer with Step 13 Adaptive Engine ──────────────────────
   const handleSubmitAnswer = () => {
     if (!currentQuestion || !selectedOption || answeredState) return
 
     const isCorrect = selectedOption === currentQuestion.correctAnswer
     const timeTaken = Math.max(1, Math.round((Date.now() - questionStartTime) / 1000))
 
-    // ── Activity Agent Adaptive Engine ────────────────────────────────────────
-    let nextDiff: 'easy' | 'medium' | 'hard' = currentDifficulty
-    let adaptationNotice = ''
+    // Update session behavioral counters
+    const nextConsecutiveCorrect = isCorrect ? consecutiveCorrect + 1 : 0
+    const nextConsecutiveMistakes = !isCorrect ? consecutiveMistakes + 1 : 0
+    const nextTopicMistakes = !isCorrect ? topicMistakes + 1 : topicMistakes
+    const nextTopicCorrect = isCorrect ? topicCorrect + 1 : topicCorrect
 
-    if (isCorrect) {
+    setConsecutiveCorrect(nextConsecutiveCorrect)
+    setConsecutiveMistakes(nextConsecutiveMistakes)
+    setTopicMistakes(nextTopicMistakes)
+    setTopicCorrect(nextTopicCorrect)
+
+    // Dynamic Mastery Score Update
+    const pointWeight = currentDifficulty === 'hard' ? 20 : currentDifficulty === 'medium' ? 15 : 10
+    const pointDelta = isCorrect ? pointWeight : -6
+    const updatedMastery = Math.min(100, Math.max(10, topicMastery + pointDelta))
+    setTopicMastery(updatedMastery)
+
+    // ── STEP 13 ADAPTIVE LEARNING ENGINE ──────────────────────────────────────
+    let nextDiff: 'easy' | 'medium' | 'hard' = currentDifficulty
+    let adaptationReason = ''
+    let adaptationNotice = ''
+    let ruleTriggered: 'repeated_mistakes' | 'low_accuracy' | 'high_performance' | 'good_accuracy' | 'slow_completion'
+    let isSlowCompletion = false
+    let isRepeatedMistake = false
+    let stepByStepTip: string | undefined
+
+    // Rule 1: Repeated mistakes on the same concept
+    if (!isCorrect && (nextConsecutiveMistakes >= 2 || nextTopicMistakes >= 2)) {
+      isRepeatedMistake = true
+      ruleTriggered = 'repeated_mistakes'
+      nextDiff = 'easy'
+      adaptationReason = `You missed ${nextTopicMistakes} ${currentQuestion.topicName} questions, so we're giving you a simpler ${currentQuestion.topicName} problem to strengthen the concept.`
+      adaptationNotice = `Concept gap identified in ${currentQuestion.topicName}. Difficulty adjusted to Easy with revision support.`
+    }
+    // Rule 2: Slow completion (taking >= 45 seconds)
+    else if (timeTaken >= 45) {
+      isSlowCompletion = true
+      ruleTriggered = 'slow_completion'
+      stepByStepTip = activeLearningTopic?.styleExplanations?.['step-by-step']?.body ||
+        `Step 1: Identify given structure and constraints. Step 2: Trace invariants step-by-step. Step 3: Verify boundary conditions before concluding.`
+
+      if (!isCorrect) {
+        nextDiff = 'easy'
+        adaptationReason = `You took ${timeTaken}s on this question. We recommend breaking down ${currentQuestion.topicName} step-by-step with foundational practice.`
+        adaptationNotice = `Pace calibration: Took ${timeTaken}s. Shifting to Easy with step-by-step breakdown.`
+      } else {
+        nextDiff = currentDifficulty
+        adaptationReason = `Correct answer, but completion took ${timeTaken}s. Maintaining ${currentDifficulty} difficulty to solidify procedural fluency.`
+        adaptationNotice = `Procedural pacing: Retaining ${currentDifficulty} difficulty to build speed.`
+      }
+    }
+    // Rule 3: Low accuracy (single mistake on current difficulty tier)
+    else if (!isCorrect) {
+      ruleTriggered = 'low_accuracy'
+      if (currentDifficulty === 'hard') nextDiff = 'medium'
+      else if (currentDifficulty === 'medium') nextDiff = 'easy'
+      else nextDiff = 'easy'
+
+      adaptationReason = `Incorrect attempt on ${currentDifficulty} difficulty. Calibrating difficulty to ${nextDiff} to reinforce core principles.`
+      adaptationNotice = `Calibrating difficulty: Stepping down to ${nextDiff} for conceptual reinforcement.`
+    }
+    // Rule 4: High performance (2 or more consecutive correct answers)
+    else if (nextConsecutiveCorrect >= 2) {
+      ruleTriggered = 'high_performance'
+      if (currentDifficulty === 'easy') nextDiff = 'medium'
+      else if (currentDifficulty === 'medium') nextDiff = 'hard'
+      else nextDiff = 'hard'
+
+      adaptationReason = `High performance streak! ${nextConsecutiveCorrect} correct answers in a row on ${currentQuestion.topicName}. Recommending a harder question.`
+      adaptationNotice = `High performance detected! Elevating difficulty to ${nextDiff}.`
+    }
+    // Rule 5: Good accuracy (first correct answer on tier)
+    else {
+      ruleTriggered = 'good_accuracy'
       if (currentDifficulty === 'easy') {
         nextDiff = 'medium'
-        adaptationNotice = '🎯 Correct! Activity Agent has elevated difficulty to Medium.'
-      } else if (currentDifficulty === 'medium') {
-        nextDiff = 'hard'
-        adaptationNotice = '🔥 Strong analytical accuracy! Activity Agent has scaled difficulty to Hard.'
+        adaptationReason = `Good accuracy! Foundational understanding confirmed. Transitioning to Medium.`
+        adaptationNotice = `Foundations verified. Progressing to Medium.`
       } else {
-        nextDiff = 'hard'
-        adaptationNotice = '🏆 Exceptional mastery! Retaining Hard difficulty challenge tier.'
+        nextDiff = currentDifficulty
+        adaptationReason = `Solid analytical reasoning! Maintaining ${currentDifficulty} to confirm topic mastery.`
+        adaptationNotice = `Analytical accuracy confirmed. Maintaining ${currentDifficulty}.`
       }
-    } else {
-      if (currentDifficulty === 'hard') {
-        nextDiff = 'medium'
-        adaptationNotice = '💡 Calibrating difficulty: Stepping down to Medium for solid conceptual foundation.'
-      } else if (currentDifficulty === 'medium') {
-        nextDiff = 'easy'
-        adaptationNotice = '📚 Concept gap detected: Scaling to Easy with reinforced revision notes.'
-      } else {
-        nextDiff = 'easy'
-        adaptationNotice = '⚠️ Reviewing core principles: Retaining Easy with foundational breakdown.'
+    }
+
+    // ── Learner Interest Contextual Analogy Bridge ────────────────────────────
+    let interestAnalogy: { title: string; narrative: string; mappingText: string } | undefined
+    if (activeLearningTopic?.interestAnalogies?.[userInterestKey]) {
+      const aData = activeLearningTopic.interestAnalogies[userInterestKey]
+      const mapItem = aData.mapping?.[0]
+      interestAnalogy = {
+        title: aData.title,
+        narrative: aData.narrative,
+        mappingText: mapItem ? `${mapItem.term} maps to ${mapItem.dsaConcept} (${mapItem.meaning})` : aData.narrative,
+      }
+    }
+
+    // ── Dynamic Learner Model Update (No Permanent Labels) ────────────────────
+    const currentStrengths = learnerProfile?.strengths || []
+    const currentNeedsPractice = learnerProfile?.needs_practice || []
+    let learnerModelUpdated = false
+    let learnerModelNotice = ''
+    let updatedStrengths = [...currentStrengths]
+    let updatedNeedsPractice = [...currentNeedsPractice]
+
+    // Promotion: If user proves mastery with 2+ correct answers and zero mistakes
+    if (nextTopicCorrect >= 2 && nextTopicMistakes === 0) {
+      if (updatedNeedsPractice.includes(currentQuestion.topicName)) {
+        updatedNeedsPractice = updatedNeedsPractice.filter(t => t !== currentQuestion.topicName)
+        learnerModelUpdated = true
+      }
+      if (!updatedStrengths.includes(currentQuestion.topicName)) {
+        updatedStrengths.push(currentQuestion.topicName)
+        learnerModelUpdated = true
+      }
+      if (learnerModelUpdated) {
+        learnerModelNotice = `🎉 Dynamic Learner Model: ${currentQuestion.topicName} graduated from 'Needs Practice' to 'Active Strength'!`
+      }
+    }
+
+    // Calibration: If user struggles with 2+ mistakes
+    if (nextTopicMistakes >= 2 && (nextTopicCorrect / (nextTopicCorrect + nextTopicMistakes)) < 0.5) {
+      if (updatedStrengths.includes(currentQuestion.topicName)) {
+        updatedStrengths = updatedStrengths.filter(t => t !== currentQuestion.topicName)
+        learnerModelUpdated = true
+      }
+      if (!updatedNeedsPractice.includes(currentQuestion.topicName)) {
+        updatedNeedsPractice.push(currentQuestion.topicName)
+        learnerModelUpdated = true
+      }
+      if (learnerModelUpdated) {
+        learnerModelNotice = `🔄 Dynamic Learner Model: ${currentQuestion.topicName} calibrated to 'Needs Practice' for foundational reinforcement.`
       }
     }
 
@@ -290,7 +451,7 @@ export default function PracticePage({
       attemptsCount: 1,
     }
 
-    // 1. Synchronously set answered state so UI feedback appears instantly!
+    // Synchronously set answered state so UI feedback appears instantly!
     setAnsweredState({
       isCorrect,
       explanation: currentQuestion.explanation,
@@ -298,21 +459,51 @@ export default function PracticePage({
       correctAnswer: currentQuestion.correctAnswer,
       nextDiff,
       adaptationNotice,
+      adaptationReason,
+      ruleTriggered,
+      isSlowCompletion,
+      isRepeatedMistake,
+      learnerModelUpdated,
+      learnerModelNotice,
+      interestAnalogy,
+      stepByStepTip,
     })
 
-    // 2. Append attempt record
+    // Append attempt record
     setSessionAttempts(prev => [...prev, attemptRecord])
 
-    // 3. Asynchronously persist to Supabase in background
+    // Update dynamic learner profile locally
+    if (learnerModelUpdated && learnerProfile) {
+      setProfileLocally({
+        ...learnerProfile,
+        strengths: updatedStrengths,
+        needs_practice: updatedNeedsPractice,
+      })
+    }
+
+    // Persist all updates to Supabase in background
     if (user) {
-      saveAttemptToSupabase(attemptRecord, nextDiff)
+      saveAttemptToSupabase(
+        attemptRecord,
+        nextDiff,
+        adaptationReason,
+        updatedMastery,
+        learnerModelUpdated,
+        updatedStrengths,
+        updatedNeedsPractice
+      )
     }
   }
 
   // Background Supabase persistence helper
   const saveAttemptToSupabase = async (
     attempt: AttemptRecord,
-    nextDiff: 'easy' | 'medium' | 'hard'
+    nextDiff: 'easy' | 'medium' | 'hard',
+    adaptationReason: string,
+    newMasteryScore: number,
+    modelUpdated: boolean,
+    newStrengths: string[],
+    newNeedsPractice: string[]
   ) => {
     try {
       let topicUuid = topicDbMap[selectedTopicId] || topicDbMap[attempt.topic.toLowerCase()]
@@ -342,20 +533,14 @@ export default function PracticePage({
         })
 
         // B. Update learning_progress
-        const weight = attempt.difficulty === 'hard' ? 25 : attempt.difficulty === 'medium' ? 15 : 10
-        const pointDelta = attempt.isCorrect ? weight : -5
-
         const { data: existingProgress } = await supabase
           .from('learning_progress')
-          .select('id, progress_percentage, mastery_score')
+          .select('id, progress_percentage')
           .eq('user_id', user.id)
           .eq('topic_id', topicUuid)
           .maybeSingle()
 
-        const prevMastery = existingProgress?.mastery_score || 45
         const prevProgress = existingProgress?.progress_percentage || 50
-
-        const newMastery = Math.min(100, Math.max(10, prevMastery + pointDelta))
         const newProgress = Math.min(100, Math.max(prevProgress, prevProgress + 10))
 
         await supabase.from('learning_progress').upsert(
@@ -363,24 +548,36 @@ export default function PracticePage({
             user_id: user.id,
             topic_id: topicUuid,
             progress_percentage: newProgress,
-            mastery_score: newMastery,
-            completed: newMastery >= 80,
+            mastery_score: newMasteryScore,
+            completed: newMasteryScore >= 80,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'user_id,topic_id' }
         )
 
-        // C. Log event to learner_behaviour
+        // C. Update learner_profiles if model was updated
+        if (modelUpdated) {
+          await supabase.from('learner_profiles').update({
+            strengths: newStrengths,
+            needs_practice: newNeedsPractice,
+            updated_at: new Date().toISOString(),
+          }).eq('user_id', user.id)
+        }
+
+        // D. Log adaptive decision to learner_behaviour
         await supabase.from('learner_behaviour').insert({
           user_id: user.id,
           topic_id: topicUuid,
-          event_type: attempt.isCorrect ? 'practice_correct' : 'practice_mistake',
+          event_type: 'adaptive_decision',
           event_data: {
             topic: attempt.topic,
-            difficulty: attempt.difficulty,
+            previous_difficulty: attempt.difficulty,
             next_difficulty: nextDiff,
+            adaptation_reason: adaptationReason,
             time_taken: attempt.timeTaken,
             hints_used: attempt.hintsUsed,
+            is_correct: attempt.isCorrect,
+            model_updated: modelUpdated,
           },
         })
       }
@@ -449,7 +646,7 @@ export default function PracticePage({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full border border-brand-100">
-                  Step 12 · Activity Agent
+                  Step 13 · Adaptive Learning Engine
                 </span>
                 <span className="hidden sm:inline text-xs text-navy-400">·</span>
                 <span className="hidden sm:inline text-xs text-navy-500 font-medium">Personalized Practice</span>
@@ -487,27 +684,42 @@ export default function PracticePage({
 
       {/* ── Main Container ──────────────────────────────────────────── */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-8">
-        {/* Topic & Diagnostic Calibration Banner */}
+        {/* Topic & Diagnostic Calibration Banner with Real-time Adaptive Signals */}
         <div className="mb-6 bg-white border border-navy-200 rounded-2xl p-4 sm:p-5 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-600 flex-shrink-0">
               <Zap className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-sm font-bold text-navy-900">
                   Topic: {currentTopicMeta.name}
                 </h2>
                 <span className="text-[11px] text-navy-500">({currentTopicMeta.category})</span>
+                <span className="text-[10px] font-bold text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full">
+                  {topicMastery}% Mastery
+                </span>
+                {consecutiveCorrect >= 2 && (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Flame className="w-3 h-3 text-amber-500" />
+                    {consecutiveCorrect} Streak
+                  </span>
+                )}
+                {consecutiveMistakes >= 2 && (
+                  <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 text-rose-500" />
+                    Concept Gap Detected
+                  </span>
+                )}
               </div>
               <p className="text-xs text-navy-500 mt-0.5">
-                Calibrated against your diagnostic baseline. Questions adapt based on real-time accuracy and attempts.
+                Calibrated against your diagnostic profile & practice behaviour. Questions adapt dynamically to accuracy and pace.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <span className="text-xs text-navy-500 font-medium">Session Progress:</span>
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-shrink-0">
+            <span className="text-xs text-navy-500 font-medium">Session:</span>
             <span className="text-xs font-bold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full border border-brand-100">
               {totalAnswered} / 5 Questions
             </span>
@@ -525,7 +737,7 @@ export default function PracticePage({
                 Practice Session Completed!
               </h2>
               <p className="text-xs text-navy-500 mt-1">
-                You have completed your personalized practice session for <strong>{currentTopicMeta.name}</strong>. All results have been synchronized to Supabase.
+                You completed your adaptive practice session for <strong>{currentTopicMeta.name}</strong>. Dynamic mastery has been recalibrated and stored in Supabase.
               </p>
             </div>
 
@@ -538,9 +750,9 @@ export default function PracticePage({
               </div>
 
               <div className="p-4 bg-navy-50 rounded-xl border border-navy-200 text-center">
-                <div className="text-2xl font-black text-emerald-600">{totalCorrect}</div>
-                <div className="text-[11px] font-semibold text-navy-500 mt-0.5">Correct Answers</div>
-                <div className="text-[10px] text-navy-400 mt-0.5">{totalAnswered - totalCorrect} incorrect</div>
+                <div className="text-2xl font-black text-emerald-600">{topicMastery}%</div>
+                <div className="text-[11px] font-semibold text-navy-500 mt-0.5">Updated Mastery</div>
+                <div className="text-[10px] text-navy-400 mt-0.5">{topicMastery >= 80 ? 'Mastery Achieved!' : `${80 - topicMastery}% to certificate`}</div>
               </div>
 
               <div className="p-4 bg-navy-50 rounded-xl border border-navy-200 text-center">
@@ -605,6 +817,10 @@ export default function PracticePage({
                   setHintsUsedThisQ(0)
                   setSecondsElapsed(0)
                   setQuestionStartTime(Date.now())
+                  setConsecutiveCorrect(0)
+                  setConsecutiveMistakes(0)
+                  setTopicMistakes(0)
+                  setTopicCorrect(0)
                   const firstQ = selectUnusedQuestion(selectedTopicId, initDiff, [])
                   if (firstQ) {
                     setCurrentQuestion(firstQ)
@@ -612,7 +828,7 @@ export default function PracticePage({
                     setCurrentDifficulty(firstQ.difficulty)
                   }
                 }}
-                className="btn-secondary text-xs px-4 py-2.5 w-full sm:w-auto justify-center flex items-center gap-2"
+                className="btn-secondary text-xs px-4 py-2.5 w-full sm:w-auto justify-center flex items-center gap-2 cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Practice Again
@@ -622,7 +838,7 @@ export default function PracticePage({
                 <button
                   type="button"
                   onClick={() => onOpenLearningTopic(selectedTopicId)}
-                  className="btn-secondary text-xs px-4 py-2.5 w-full sm:w-auto justify-center flex items-center gap-2 text-brand-600"
+                  className="btn-secondary text-xs px-4 py-2.5 w-full sm:w-auto justify-center flex items-center gap-2 text-brand-600 cursor-pointer"
                 >
                   <BookOpen className="w-3.5 h-3.5" />
                   Review {currentTopicMeta.name} Lesson
@@ -632,7 +848,7 @@ export default function PracticePage({
               <button
                 type="button"
                 onClick={onBackToDashboard}
-                className="btn-primary text-xs px-5 py-2.5 w-full sm:w-auto justify-center flex items-center gap-2"
+                className="btn-primary text-xs px-5 py-2.5 w-full sm:w-auto justify-center flex items-center gap-2 cursor-pointer"
               >
                 Return to Dashboard
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -670,7 +886,7 @@ export default function PracticePage({
                     <button
                       type="button"
                       onClick={handleRevealHint}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-colors ${
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
                         hintRevealed
                           ? 'bg-amber-100 text-amber-800 border-amber-300'
                           : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
@@ -784,7 +1000,7 @@ export default function PracticePage({
                   {/* ── Post-Answer Review & Explanation Drawer ──────────────── */}
                   {answeredState && (
                     <div className="mt-6 pt-6 border-t border-navy-200 space-y-4 animate-fade-in">
-                      {/* Result Banner */}
+                      {/* 1. Result Banner */}
                       <div className={`p-4 rounded-xl border flex items-start gap-3 ${
                         answeredState.isCorrect
                           ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
@@ -803,13 +1019,86 @@ export default function PracticePage({
                             <span>Well done! Your answer aligns directly with the underlying algorithmic principle.</span>
                           ) : (
                             <span>
-                              The correct answer is: <strong>{answeredState.correctAnswer}</strong>. Review the explanation below to reinforce your understanding.
+                              The correct answer is: <strong>{answeredState.correctAnswer}</strong>. Review the explanation and adaptive recommendations below.
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {/* Explanation Card */}
+                      {/* 2. Clear Understandable Reason for Adaptation (PRD Step 13) */}
+                      <div className="p-4 bg-brand-50/90 rounded-xl border border-brand-200 text-xs text-brand-950 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-brand-600 flex-shrink-0" />
+                          <span className="font-bold uppercase tracking-wider text-[11px] text-brand-700">
+                            Adaptive Decision · Activity Agent
+                          </span>
+                        </div>
+                        <p className="font-semibold text-brand-900 text-sm leading-snug">
+                          "{answeredState.adaptationReason}"
+                        </p>
+                      </div>
+
+                      {/* 3. Dynamic Learner Model Update Notification (No Permanent Labeling) */}
+                      {answeredState.learnerModelUpdated && (
+                        <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-900 flex items-center gap-2.5 animate-scale-up">
+                          <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                          <span className="font-semibold">{answeredState.learnerModelNotice}</span>
+                        </div>
+                      )}
+
+                      {/* 4. Learner Interest-Tailored Analogy Bridge */}
+                      {answeredState.interestAnalogy && (
+                        <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-xl text-xs text-indigo-950 space-y-1.5">
+                          <div className="font-bold text-indigo-900 flex items-center gap-1.5">
+                            <Compass className="w-4 h-4 text-indigo-600" />
+                            <span>Relatable {answeredState.interestAnalogy.title} Analogy:</span>
+                          </div>
+                          <p className="text-indigo-800 leading-relaxed">
+                            {answeredState.interestAnalogy.narrative}
+                          </p>
+                          <div className="text-[11px] font-semibold text-indigo-900 bg-white/80 p-2 rounded-lg border border-indigo-100">
+                            <strong>Concept Bridge:</strong> {answeredState.interestAnalogy.mappingText}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 5. Step-by-Step Breakdown (Triggered on Slow Completion) */}
+                      {answeredState.isSlowCompletion && answeredState.stepByStepTip && (
+                        <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-950 space-y-1.5">
+                          <div className="font-bold text-amber-900 flex items-center gap-1.5">
+                            <Clock className="w-4 h-4 text-amber-600" />
+                            <span>Procedural Step-by-Step Breakdown (Slow Completion):</span>
+                          </div>
+                          <p className="text-amber-800 leading-relaxed whitespace-pre-line">
+                            {answeredState.stepByStepTip}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* 6. Adaptive Revision Rule & Lesson Review Action */}
+                      {(!answeredState.isCorrect || answeredState.isRepeatedMistake) && (
+                        <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 leading-relaxed space-y-2">
+                          <div className="font-bold text-amber-950 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <Lightbulb className="w-4 h-4 text-amber-600" />
+                              <span>Adaptive Revision Rule:</span>
+                            </div>
+                            {onOpenLearningTopic && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenLearningTopic(selectedTopicId)}
+                                className="text-[11px] font-bold text-brand-700 bg-white border border-brand-200 px-2.5 py-1 rounded-lg hover:bg-brand-50 flex items-center gap-1 cursor-pointer transition-colors"
+                              >
+                                <BookOpen className="w-3.5 h-3.5 text-brand-600" />
+                                <span>Review {currentQuestion.topicName} Lesson</span>
+                              </button>
+                            )}
+                          </div>
+                          <p>{answeredState.revisionTip}</p>
+                        </div>
+                      )}
+
+                      {/* 7. Analytical Explanation Card */}
                       <div className="p-4 bg-navy-50 rounded-xl border border-navy-200 text-xs text-navy-700 leading-relaxed space-y-2">
                         <div className="font-bold text-navy-900 flex items-center gap-1.5">
                           <Brain className="w-4 h-4 text-brand-600" />
@@ -818,24 +1107,7 @@ export default function PracticePage({
                         <p>{answeredState.explanation}</p>
                       </div>
 
-                      {/* Adaptive Revision Rule (Displayed on incorrect answers) */}
-                      {!answeredState.isCorrect && (
-                        <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 leading-relaxed space-y-1">
-                          <div className="font-bold text-amber-950 flex items-center gap-1.5">
-                            <Lightbulb className="w-4 h-4 text-amber-600" />
-                            <span>Adaptive Revision Rule:</span>
-                          </div>
-                          <p>{answeredState.revisionTip}</p>
-                        </div>
-                      )}
-
-                      {/* Activity Agent Adaptation Notice */}
-                      <div className="p-3 bg-brand-50/80 rounded-xl border border-brand-200 text-xs text-brand-900 flex items-center gap-2.5">
-                        <Sparkles className="w-4 h-4 text-brand-600 flex-shrink-0" />
-                        <span className="font-medium">{answeredState.adaptationNotice}</span>
-                      </div>
-
-                      {/* Next / Finish Button */}
+                      {/* 8. Next / Finish Buttons */}
                       <div className="flex items-center justify-between gap-3 pt-2">
                         <button
                           type="button"

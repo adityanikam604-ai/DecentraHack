@@ -4,6 +4,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import morgan from 'morgan'
+import aiRoutes from './routes/aiRoutes.js'
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -34,6 +35,9 @@ app.get('/health', (req, res) => {
     env: process.env.NODE_ENV,
   })
 })
+
+// AI Routes (Secure server-side LLM & adaptive engine)
+app.use('/api/ai', aiRoutes)
 
 // 404 handler
 app.use((req, res) => {
