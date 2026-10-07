@@ -519,10 +519,4 @@ After the MVP: advanced learner modelling · embeddings & vector search · ML re
 
 ---
 
-## 📄 License
 
-Add your license here (e.g. MIT).
-
-## 👥 Team
-
-Add team members and contact info here.
